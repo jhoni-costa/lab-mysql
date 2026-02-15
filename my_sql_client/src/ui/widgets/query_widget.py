@@ -1,9 +1,12 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QPlainTextEdit, QPushButton, 
                              QTableWidget, QTableWidgetItem, QSplitter, QLabel, QHBoxLayout, QMessageBox)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from database.executor import DatabaseExecutor
 
 class QueryWidget(QWidget):
+    # Signal emitted when a USE <db> is executed from the editor
+    database_changed = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.executor = DatabaseExecutor()
@@ -84,6 +87,17 @@ class QueryWidget(QWidget):
             self.fetch_primary_key()
 
         if error:
+            # Special-case: some non-SELECT successful statements return a success message string
+            import re
+            if re.match(r"^\s*USE\s+`?\w+`?\s*;?$", query, re.IGNORECASE):
+                # consider as success and notify parent
+                m = re.search(r"^\s*USE\s+`?(\w+)`?", query, re.IGNORECASE)
+                if m:
+                    dbname = m.group(1)
+                    self.database_changed.emit(dbname)
+                    self.status_label.setText(f"Database changed to {dbname}")
+                    return
+
             self.status_label.setText(f"Error: {error}")
             self.results_table.setRowCount(0)
             self.results_table.setColumnCount(0)

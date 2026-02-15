@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QTreeWidget, QTreeWidgetItem, QTabWidget, QToolBar, 
                              QMessageBox, QSplitter, QMenu, QFileDialog, QInputDialog)
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QFont
 from PyQt6.QtCore import Qt
 from ui.connection_dialog import ConnectionDialog
 from ui.widgets.query_widget import QueryWidget
@@ -17,6 +17,7 @@ class MainWindow(QMainWindow):
         
         self.connector = DatabaseConnector()
         self.executor = DatabaseExecutor()
+        self.current_db = None
         
         self.init_ui()
         self.show_connection_dialog()
@@ -102,6 +103,11 @@ class MainWindow(QMainWindow):
             db_item.setData(0, Qt.ItemDataRole.UserRole, "database")
             # Create a dummy child so it's expandable
             db_item.addChild(QTreeWidgetItem(["Loading..."]))
+            # if this is the current DB, make it bold
+            if self.current_db and db == self.current_db:
+                font = db_item.font(0)
+                font.setBold(True)
+                db_item.setFont(0, font)
             self.sidebar.addTopLevelItem(db_item)
             
         self.sidebar.itemExpanded.connect(self.on_item_expanded)
@@ -122,7 +128,20 @@ class MainWindow(QMainWindow):
                 item.addChild(table_item)
 
     def on_sidebar_item_double_clicked(self, item, column):
-        if item.data(0, Qt.ItemDataRole.UserRole) == "table":
+        item_type = item.data(0, Qt.ItemDataRole.UserRole)
+        if item_type == "database":
+            db_name = item.text(0)
+            # execute USE <db>
+            _, _, error = self.executor.execute_query(f"USE `{db_name}`")
+            # executor returns a success string for non-selects; treat that as success
+            success = (error is None) or (isinstance(error, str) and "Query executed successfully" in error)
+            if success:
+                self.set_current_database(db_name)
+            else:
+                QMessageBox.critical(self, "Error", f"Failed to switch database: {error}")
+            return
+
+        if item_type == "table":
             table_name = item.text(0)
             db_item = item.parent()
             if db_item:
@@ -231,6 +250,11 @@ class MainWindow(QMainWindow):
 
     def add_query_tab(self, query=None):
         query_widget = QueryWidget()
+        # respond to database changes initiated from the editor
+        try:
+            query_widget.database_changed.connect(self.handle_database_change_from_editor)
+        except Exception:
+            pass
         if query:
             query_widget.query_editor.setPlainText(query)
             # Only run if it's a SELECT, otherwise just show the template
@@ -239,6 +263,38 @@ class MainWindow(QMainWindow):
         
         index = self.tabs.addTab(query_widget, "Query")
         self.tabs.setCurrentIndex(index)
+
+    def handle_database_change_from_editor(self, db_name):
+        # The editor executed a USE statement; update UI and connector config
+        self.set_current_database(db_name)
+        QMessageBox.information(self, "Database Changed", f"Current database set to '{db_name}'")
+
+    def set_current_database(self, db_name):
+        # Update connector config
+        try:
+            self.connector.config['database'] = db_name
+        except Exception:
+            pass
+        # Unbold previous
+        if self.current_db:
+            # find previous top-level item and unbold
+            for i in range(self.sidebar.topLevelItemCount()):
+                it = self.sidebar.topLevelItem(i)
+                if it.text(0) == self.current_db:
+                    f = it.font(0)
+                    f.setBold(False)
+                    it.setFont(0, f)
+                    break
+
+        # Bold new
+        self.current_db = db_name
+        for i in range(self.sidebar.topLevelItemCount()):
+            it = self.sidebar.topLevelItem(i)
+            if it.text(0) == db_name:
+                f = it.font(0)
+                f.setBold(True)
+                it.setFont(0, f)
+                break
 
     def close_tab(self, index):
         if self.tabs.count() > 1:
