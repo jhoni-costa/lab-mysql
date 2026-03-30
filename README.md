@@ -15,6 +15,7 @@ A lightweight, intuitive, and pleasant MySQL desktop client built with Python an
 -   Python 3.10+
 -   `mysql-connector-python`
 -   `PyQt6`
+-   For Backup/Restore: MySQL client tools (`mysqldump` and `mysql`) available in PATH
 
 ## Installation
 
@@ -28,12 +29,45 @@ A lightweight, intuitive, and pleasant MySQL desktop client built with Python an
 
 Run the application:
 ```bash
+python my_sql_client/src/main.py
+```
+
+On Linux/macOS, if your system uses `python3`, run:
+```bash
 python3 my_sql_client/src/main.py
 ```
 
+## Windows Notes
+
+-   The desktop app runs on Windows with Python 3.10+.
+-   Backup/Restore requires MySQL client tools in PATH.
+-   Typical PATH entry example:
+    - `C:\Program Files\MySQL\MySQL Server 8.0\bin`
+
+## Packaging (Windows .exe)
+
+To create a Windows executable with PyInstaller:
+
+1. Install build dependency:
+    ```bash
+    pip install pyinstaller
+    ```
+
+2. Run the packaging script:
+    ```bash
+    python packaging/create_windows_exe.py
+    ```
+
+3. The executable will be generated at:
+    - `dist/my-sql-desktop-client/my-sql-desktop-client.exe`
+
+Notes:
+- Build on Windows to produce a native `.exe`.
+- If your antivirus flags unsigned binaries, this is common for local test builds.
+
 ## Packaging (.deb)
 
-To create a `.deb` package for Linux:
+This section is Linux-only. To create a `.deb` package:
 
 1.  Run the packaging script:
     ```bash

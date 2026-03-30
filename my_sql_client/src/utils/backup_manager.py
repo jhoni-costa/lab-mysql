@@ -1,5 +1,13 @@
 import subprocess
 import os
+import shutil
+
+
+def _resolve_executable(name):
+    """
+    Resolve an executable from PATH in a cross-platform way.
+    """
+    return shutil.which(name)
 
 class BackupManager:
     @staticmethod
@@ -15,8 +23,15 @@ class BackupManager:
         env = os.environ.copy()
         env['MYSQL_PWD'] = password
         
+        dump_exec = _resolve_executable('mysqldump')
+        if not dump_exec:
+            return (
+                False,
+                "mysqldump not found in PATH. Install MySQL client tools and add the MySQL bin folder to PATH."
+            )
+
         cmd = [
-            'mysqldump',
+            dump_exec,
             '-h', host,
             '-P', str(port),
             '-u', user,
@@ -29,6 +44,8 @@ class BackupManager:
             return True, "Dump successful"
         except subprocess.CalledProcessError as e:
             return False, f"Dump failed: {e.stderr.decode()}"
+        except FileNotFoundError:
+            return False, "mysqldump executable not found. Check your PATH configuration."
         except Exception as e:
             return False, str(e)
 
@@ -42,8 +59,15 @@ class BackupManager:
         env = os.environ.copy()
         env['MYSQL_PWD'] = password
         
+        mysql_exec = _resolve_executable('mysql')
+        if not mysql_exec:
+            return (
+                False,
+                "mysql not found in PATH. Install MySQL client tools and add the MySQL bin folder to PATH."
+            )
+
         cmd = [
-            'mysql',
+            mysql_exec,
             '-h', host,
             '-P', str(port),
             '-u', user,
@@ -56,5 +80,7 @@ class BackupManager:
             return True, "Restore successful"
         except subprocess.CalledProcessError as e:
             return False, f"Restore failed: {e.stderr.decode()}"
+        except FileNotFoundError:
+            return False, "mysql executable not found. Check your PATH configuration."
         except Exception as e:
             return False, str(e)

@@ -3,7 +3,17 @@ import os
 from pathlib import Path
 import keyring
 
-CONFIG_DIR = Path(os.path.expanduser("~")) / ".config" / "my_sql_client"
+
+def _get_config_dir():
+    if os.name == "nt":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata) / "my_sql_client"
+        return Path.home() / "AppData" / "Roaming" / "my_sql_client"
+    return Path.home() / ".config" / "my_sql_client"
+
+
+CONFIG_DIR = _get_config_dir()
 CONFIG_FILE = CONFIG_DIR / "config.json"
 KEYRING_SERVICE = "my_sql_client"
 
